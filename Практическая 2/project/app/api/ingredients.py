@@ -8,7 +8,7 @@ from api.schemas import IngredientCreate, IngredientRead, IngredientUpdate, Reci
 from models import Ingredient, Recipe, RecipeIngredient, db_helper
 
 from .recipes import get_recipe_read_data
-
+from sqlalchemy.orm import selectinload, contains_eager
 
 router = APIRouter(
     tags=["Ingredients"],
@@ -155,3 +155,24 @@ async def ingredient_delete(
     await session.delete(ingredient)
     await session.commit()
     return ingredient
+
+
+@router.get("/{id}/recipes", response_model=list[RecipeRead])
+async def get_recipes(
+    id: int,
+    session: Annotated[AsyncSession, Depends(db_helper.session_getter)],
+):
+    stmt = (
+        select(Recipe) 
+        .join(Recipe.ingredients)
+        .where(RecipeIngredient.ingredient_id == id)
+        .options(
+            selectinload(Recipe.cuisine),
+            selectinload(Recipe.allergens),
+            contains_eager(Recipe.ingredients).joinedload(RecipeIngredient.ingredient),
+        )
+        .distinct() 
+    )
+    result = await session.execute(stmt)
+    recipes = result.unique().scalars().all() 
+    return recipes

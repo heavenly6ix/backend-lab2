@@ -53,6 +53,7 @@ async def get_recipe_read_data(
     session: AsyncSession,
     recipe: Recipe,
 ) -> dict:
+    # Отдельный запрос на кухню
     cuisine = await session.get(Cuisine, recipe.cuisine_id)
     if cuisine is None:
         raise HTTPException(
@@ -60,6 +61,7 @@ async def get_recipe_read_data(
             detail=f"Cuisine with id {recipe.cuisine_id} not found",
         )
 
+    #Отдельный запрос на аллергены
     allergens_stmt = (
         select(Allergen)
         .join(recipe_allergens, recipe_allergens.c.allergen_id == Allergen.id)
@@ -69,6 +71,7 @@ async def get_recipe_read_data(
     allergens_result = await session.scalars(allergens_stmt)
     allergens = allergens_result.all()
 
+    # Отдельный запрос на ингредиенты
     ingredients_stmt = (
         select(Ingredient, RecipeIngredient)
         .join(RecipeIngredient, RecipeIngredient.ingredient_id == Ingredient.id)
@@ -207,23 +210,23 @@ async def recipe_create(
         ingredients=recipe_ingredients_read,
     )
 
-
-@router.get("", response_model=list[RecipeRead])
-async def recipe_list(
-    session: Annotated[
-        AsyncSession,
-        Depends(db_helper.session_getter),
-    ],
-) -> list[dict]:
-    stmt = select(Recipe).order_by(Recipe.id)
-    recipes = await session.scalars(stmt)
-    return [
-        await get_recipe_read_data(
-            session=session,
-            recipe=recipe,
-        )
-        for recipe in recipes.all()
-    ]
+# На всякий случай
+# @router.get("", response_model=list[RecipeRead])
+# async def recipe_list(
+#     session: Annotated[
+#         AsyncSession,
+#         Depends(db_helper.session_getter),
+#     ],
+# ) -> list[dict]:
+#     stmt = select(Recipe).order_by(Recipe.id)
+#     recipes = await session.scalars(stmt)
+#     return [
+#         await get_recipe_read_data(
+#             session=session,
+#             recipe=recipe,
+#         )
+#         for recipe in recipes.all()
+#     ]
 
 
 @router.get("/{id}", response_model=RecipeRead)
