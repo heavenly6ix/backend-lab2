@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.schemas import IngredientCreate, IngredientRead, IngredientUpdate, RecipeRead
 from models import Ingredient, Recipe, RecipeIngredient, db_helper
 
-from .recipes import get_recipe_read_data
 from sqlalchemy.orm import selectinload, contains_eager
 
 router = APIRouter(
@@ -49,38 +48,6 @@ async def ingredient_list(
     stmt = select(Ingredient).order_by(Ingredient.id)
     ingredients = await session.scalars(stmt)
     return ingredients.all()
-
-
-@router.get("/{id}/recipes", response_model=list[RecipeRead])
-async def ingredient_recipe_list(
-    id: int,
-    session: Annotated[
-        AsyncSession,
-        Depends(db_helper.session_getter),
-    ],
-) -> list[dict]:
-    ingredient = await session.get(Ingredient, id)
-    if ingredient is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ingredient with id {id} not found",
-        )
-
-    stmt = (
-        select(Recipe)
-        .join(RecipeIngredient, RecipeIngredient.recipe_id == Recipe.id)
-        .where(RecipeIngredient.ingredient_id == id)
-        .order_by(Recipe.id)
-        .distinct()
-    )
-    recipes = await session.scalars(stmt)
-    return [
-        await get_recipe_read_data(
-            session=session,
-            recipe=recipe,
-        )
-        for recipe in recipes.all()
-    ]
 
 
 @router.get("/{id}", response_model=IngredientRead)
@@ -162,6 +129,13 @@ async def get_recipes(
     id: int,
     session: Annotated[AsyncSession, Depends(db_helper.session_getter)],
 ):
+    ingredient = await session.get(Ingredient, id)
+    if ingredient is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ingredient with id {id} not found",
+        )
+
     stmt = (
         select(Recipe) 
         .join(Recipe.ingredients)
